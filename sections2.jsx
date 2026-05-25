@@ -277,18 +277,78 @@ function formatPhone(raw) {
 }
 
 // ===== Contact / Form =====
+// Telegram bot for receiving leads. Token is public (visible in client JS) —
+// risk is limited to someone spamming this single chat. Rotate via @BotFather
+// → /revoke if abused.
+const TG_BOT_TOKEN = '8780426570:AAFsjXVffvcDZa1jdAxb3UDV6h6DmDMkl64';
+const TG_CHAT_ID = '354744967';
+
 function ContactSection({ initialPkg }) {
   const [form, setForm] = useState({ name: '', phone: '', date: '', pkg: initialPkg || '', comment: '' });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
 
   React.useEffect(() => {
     if (initialPkg) setForm(f => ({ ...f, pkg: initialPkg }));
   }, [initialPkg]);
 
-  function submit(e) {
+  function backupLead(data) {
+    try {
+      const list = JSON.parse(localStorage.getItem('veselkin_leads') || '[]');
+      list.push({ ...data, ts: new Date().toISOString() });
+      localStorage.setItem('veselkin_leads', JSON.stringify(list));
+    } catch (_) { /* ignore */ }
+  }
+
+  async function submit(e) {
     e.preventDefault();
     if (!form.name || !form.phone) return;
-    setSent(true);
+    if (sending) return;
+
+    setSending(true);
+    setError('');
+
+    const fmtDate = form.date
+      ? new Date(form.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'не указана';
+    const pageUrl = (typeof window !== 'undefined' && window.location) ? window.location.href : '';
+
+    const text = [
+      '🎉 *Новая заявка с сайта Весёлкин*',
+      '',
+      `👤 *Имя:* ${form.name}`,
+      `📞 *Телефон:* ${form.phone}`,
+      `📅 *Дата праздника:* ${fmtDate}`,
+      `🎁 *Пакет:* ${form.pkg || 'не выбран'}`,
+      form.comment ? `💬 *Комментарий:* ${form.comment}` : '',
+      '',
+      `🕒 Отправлено: ${new Date().toLocaleString('ru-RU')}`,
+      pageUrl ? `🔗 ${pageUrl}` : '',
+    ].filter(Boolean).join('\n');
+
+    backupLead(form);
+
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TG_CHAT_ID,
+          text,
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.description || 'Telegram error');
+      setSent(true);
+    } catch (err) {
+      // Even on error the lead is saved to localStorage as a backup.
+      setError('Не удалось отправить через сайт. Позвоните, пожалуйста: ' + PHONE);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -405,9 +465,14 @@ function ContactSection({ initialPkg }) {
                   </label>
                 </div>
 
-                <button type="submit" className="btn btn--primary btn--lg contact__submit">
-                  Отправить заявку <Icon name="arrow" size={18}/>
+                <button type="submit" className="btn btn--primary btn--lg contact__submit" disabled={sending}>
+                  {sending ? 'Отправляем…' : <>Отправить заявку <Icon name="arrow" size={18}/></>}
                 </button>
+                {error && (
+                  <p className="contact__legal" style={{color: '#E04A6B', fontWeight: 600}}>
+                    {error}
+                  </p>
+                )}
                 <p className="contact__legal">
                   Мы не передаём номер третьим лицам и не звоним «по холоду». Перезваниваем только по вашей заявке.
                 </p>
