@@ -18,7 +18,8 @@ function ConfigSection({ onBook }) {
   const decorPrice = decor ? 4000 : 0;
   const showsPrice = shows.reduce((acc, idx) => acc + SHOWS_PRICE[idx].price, 0);
   const photoZonePrice = { none: 0, fountain: 2800, bento: 4500, big: 9000 }[photoZone] || 0;
-  const total = hours * pricePerHour + animatorPrice + photoPrice + decorPrice + showsPrice + photoZonePrice;
+  const cleaningFee = 1500;
+  const total = hours * pricePerHour + animatorPrice + photoPrice + decorPrice + showsPrice + photoZonePrice + cleaningFee;
 
   function toggleShow(i) {
     setShows(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
@@ -137,12 +138,13 @@ function ConfigSection({ onBook }) {
               {decor && <li><span>Оформление + сервировка</span><strong>{fmt(decorPrice)}</strong></li>}
               {photo > 0 && <li><span>Фотограф {photo} ч</span><strong>{fmt(photoPrice)}</strong></li>}
               {shows.map(i => <li key={i}><span>{SHOWS_PRICE[i].name}</span><strong>{fmt(SHOWS_PRICE[i].price)}</strong></li>)}
+              <li><span>Уборка стандартная</span><strong>{fmt(cleaningFee)}</strong></li>
             </ul>
             <div className="config__sum-total">
               <span>Итого, от</span>
               <strong>{fmt(total)}</strong>
             </div>
-            <p className="config__sum-note">Уборка стандартная (1 500 ₽) и сервировка посуды уже включены при аренде от 3 часов.</p>
+            <p className="config__sum-note">Стандартная уборка (1 500 ₽) не включена в стоимость при почасовой аренде и оплачивается дополнительно.</p>
             <button className="btn btn--primary btn--lg" onClick={() => onBook('custom')}>
               Забронировать
             </button>
